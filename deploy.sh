@@ -4,7 +4,7 @@
 
 set -e
 
-# 환경 변수 설정 (필요에 따라 수정)
+# Need to change
 export GCP_PROJECT_ID="releng-project"
 export GCP_LOCATION="us-central1"
 export SERVICE_NAME="model-armor-demo"
@@ -18,18 +18,15 @@ echo "  Location: $GCP_LOCATION"
 echo "  Service Name: $SERVICE_NAME"
 echo "  Model Armor Template: $MODEL_ARMOR_TEMPLATE_ID"
 
-# 1. 프로젝트 설정 확인
 echo "🔧 Setting up GCP project..."
 gcloud config set project $GCP_PROJECT_ID
 
-# 2. 필요한 API 활성화
 echo "🔌 Enabling required APIs..."
 gcloud services enable run.googleapis.com
 gcloud services enable cloudbuild.googleapis.com
 gcloud services enable aiplatform.googleapis.com
 gcloud services enable modelarmor.googleapis.com
 
-# 3. 소스 코드로 직접 배포 (Cloud Build 사용)
 echo "☁️  Deploying to Cloud Run..."
 gcloud run deploy $SERVICE_NAME \
   --source . \
@@ -48,11 +45,9 @@ gcloud run deploy $SERVICE_NAME \
 
 echo "✅ Deployment completed!"
 
-# 서비스 URL 가져오기
 SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --region=$GCP_LOCATION --format="value(status.url)")
 echo "🌐 Service URL: $SERVICE_URL"
 
-# 서비스 상태 확인
 echo "🔍 Checking service status..."
 gcloud run services describe $SERVICE_NAME --region=$GCP_LOCATION
 

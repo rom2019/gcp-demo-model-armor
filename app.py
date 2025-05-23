@@ -8,30 +8,30 @@ from google.auth.transport.requests import Request
 import requests
 import json
 
-# 로깅 설정
+# logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- GCP 설정 (환경변수에서 가져오기) ---
+# --- GCP Setting ---
 GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID")
 GCP_LOCATION = os.getenv("GCP_LOCATION")
 MODEL_ARMOR_TEMPLATE_ID = os.getenv("MODEL_ARMOR_TEMPLATE_ID")
 
-# Streamlit 설정
+# Streamlit Setting
 STREAMLIT_SERVER_PORT = int(os.getenv("STREAMLIT_SERVER_PORT")) if os.getenv("STREAMLIT_SERVER_PORT") else None
 STREAMLIT_SERVER_ADDRESS = os.getenv("STREAMLIT_SERVER_ADDRESS")
 
-# --- Model Armor REST API 호출 함수 ---
+# --- Model Armor REST API  ---
 def check_model_armor_rules(project_id: str, location: str, template_id: str, prompt_text: str):
     """
     Model Armor REST API를 사용하여 프롬프트 검사
     """
     try:
-        # 인증 정보 가져오기
+        # Auth
         credentials, _ = default()
         credentials.refresh(Request())
         
-        # Model Armor API 엔드포인트 (지역별 엔드포인트 사용)
+        # Model Armor API Endpoint
         endpoint = f"https://modelarmor.{location}.rep.googleapis.com/v1/projects/{project_id}/locations/{location}/templates/{template_id}:sanitizeUserPrompt"
         
         headers = {
@@ -39,7 +39,7 @@ def check_model_armor_rules(project_id: str, location: str, template_id: str, pr
             "Content-Type": "application/json"
         }
         
-        # API 요청 페이로드 (올바른 형식)
+        # API Request payload
         payload = {
             "user_prompt_data": {
                 "text": prompt_text
@@ -89,11 +89,11 @@ def parse_model_armor_response(response_data, prompt_text):
     try:
         violations_found = []
         
-        # sanitizationResult 구조 파싱
+        # sanitizationResult 
         sanitization_result = response_data.get("sanitizationResult", {})
         filter_results = sanitization_result.get("filterResults", {})
         
-        # 전체 필터 매치 상태 확인
+        # overall match state check 
         overall_match_state = sanitization_result.get("filterMatchState", "")
         if overall_match_state == "MATCH_FOUND":
             armor_results["issues_found"] = True
@@ -127,7 +127,7 @@ def parse_model_armor_response(response_data, prompt_text):
         
         rai_violations_found = False
         
-        # 각 RAI 카테고리 체크
+        # RAI Category Check
         if "harassment" in rai_type_results:
             harassment_result = rai_type_results["harassment"]
             if harassment_result.get("matchState") == "MATCH_FOUND":
@@ -160,12 +160,12 @@ def parse_model_armor_response(response_data, prompt_text):
                 violations_found.append("dangerous_content")
                 rai_violations_found = True
         
-        # RAI 전체 상태 설정
+        # RAI Overall Setting 
         if rai_violations_found:
             armor_results["responsible_ai"]["status"] = "Violations found"
             violations_found.append("rai")
         
-        # 전체 상태 설정
+        # Overall Setting 
         if violations_found:
             violation_list = " • ".join(violations_found)
             armor_results["overall_status"] = f"Violations found: • {violation_list}"
@@ -183,7 +183,7 @@ def parse_model_armor_response(response_data, prompt_text):
 
 def create_armor_error_result(error_message, prompt_text):
     """
-    에러 발생시 결과 생성
+    Error
     """
     return {
         "sensitive_data_protection": {"status": "API Error", "details": error_message},
@@ -200,7 +200,7 @@ def create_armor_error_result(error_message, prompt_text):
         "overall_status": f"API Error: {error_message}"
     }
 
-# --- Template 생성 함수 ---
+
 def create_model_armor_template(project_id: str, location: str, template_id: str):
     """
     Model Armor Template 생성
@@ -216,7 +216,6 @@ def create_model_armor_template(project_id: str, location: str, template_id: str
             "Content-Type": "application/json"
         }
         
-        # 기본 템플릿 설정 (올바른 형식)
         payload = {
             "templateId": template_id,
             "template": {
@@ -238,7 +237,6 @@ def create_model_armor_template(project_id: str, location: str, template_id: str
         logger.error(f"Error creating template: {e}")
         return False, f"Template creation error: {e}"
 
-# --- Vertex AI API 호출 함수 (Model Armor 통합) ---
 def call_vertex_ai_with_model_armor(
     project_id: str,
     location: str,
@@ -247,21 +245,16 @@ def call_vertex_ai_with_model_armor(
     template_id: str,
     use_model_armor: bool = True
 ):
-    """
-    Model Armor 검사 후 Vertex AI 호출
-    """
+
     
-    # 1. Model Armor로 사전 검사
     if use_model_armor:
         logger.info("Checking prompt with Model Armor...")
         armor_results = check_model_armor_rules(project_id, location, template_id, prompt_text)
         
-        # Model Armor에서 위반 발견시 LLM 호출하지 않음
         if armor_results.get("prompt_blocked_by_safety", False):
             armor_results["llm_response_text"] = "Prompt blocked by Model Armor rules. LLM not called."
             return armor_results, None
     else:
-        # Model Armor 사용하지 않는 경우 기본 결과
         armor_results = {
             "sensitive_data_protection": {"status": "Not Checked", "details": None},
             "prompt_injection_jailbreak": {"status": "Not Checked", "details": None},
@@ -282,7 +275,6 @@ def call_vertex_ai_with_model_armor(
             "overall_status": "Model Armor not used"
         }
     
-    # 2. Vertex AI 호출
     try:
         vertexai.init(project=project_id, location=location)
         model = GenerativeModel(model_id)
@@ -290,7 +282,6 @@ def call_vertex_ai_with_model_armor(
         logger.info(f"Calling Vertex AI model {model_id} after Model Armor check...")
         response = model.generate_content(contents=[prompt_text])
         
-        # LLM 응답 처리
         if response.candidates and response.candidates[0].content:
             llm_response_text = "".join(
                 part.text for part in response.candidates[0].content.parts 
@@ -307,12 +298,12 @@ def call_vertex_ai_with_model_armor(
         armor_results["llm_response_text"] = f"Vertex AI Error: {e}"
         return armor_results, None
 
-# --- 검사 결과 표시 함수 ---
+
 def display_inspection_results_block(results_data):
     st.markdown("---")
     st.markdown("### 🛡️ Model Armor Inspection Results")
     
-    # 전체 상태 표시
+
     overall_status = results_data.get("overall_status", "Unknown")
     if "Violations found" in overall_status:
         st.error(f"**Overall Status:** {overall_status} 🚨")
@@ -348,10 +339,10 @@ def display_inspection_results_block(results_data):
         st.text(results_data.get("sanitized_prompt_request_raw", "N/A"))
     st.markdown("---")
 
-# --- Streamlit 앱 ---
+
 st.set_page_config(layout="wide", page_title="Model Armor + Vertex AI Demo")
 
-# --- 사이드바 ---
+
 st.sidebar.title("🛡️ Model Armor + Vertex AI Demo")
 
 if not GCP_PROJECT_ID or not GCP_LOCATION:
@@ -379,13 +370,13 @@ with st.sidebar.expander("**Model Armor Settings**", expanded=True):
     else:
         st.warning("⚠️ Model Armor pre-check disabled")
 
-# API 정보 표시
+
 with st.sidebar.expander("**API Information**", expanded=False):
     st.code(f"Endpoint: https://modelarmor.{GCP_LOCATION}.rep.googleapis.com/v1/projects/{GCP_PROJECT_ID}/locations/{GCP_LOCATION}/templates/{MODEL_ARMOR_TEMPLATE_ID}:sanitizeUserPrompt")
     st.info("Make sure Model Armor service is enabled:\n`gcloud services enable modelarmor.googleapis.com`")
     st.info("Correct payload format:\n```json\n{\n  \"user_prompt_data\": {\n    \"text\": \"your prompt here\"\n  }\n}\n```")
 
-# --- 메인 채팅 영역 ---
+
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {"role": "user", "content": "hello"},
@@ -411,10 +402,8 @@ if user_prompt := st.chat_input("Ask anything (Model Armor will check first)..."
             use_model_armor=use_model_armor
         )
 
-    # 검사 결과 표시
     display_inspection_results_block(inspection_results)
 
-    # LLM 응답 표시
     llm_response_content = inspection_results.get("llm_response_text", "No response available.")
     
     if inspection_results.get("prompt_blocked_by_safety"):
