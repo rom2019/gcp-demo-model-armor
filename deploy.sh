@@ -9,6 +9,8 @@ export GCP_PROJECT_ID="releng-project"
 export GCP_LOCATION="us-central1"
 export SERVICE_NAME="model-armor-demo"
 export IMAGE_NAME="model-armor-demo"
+
+# Do Not Change
 export MODEL_ARMOR_TEMPLATE_ID="model-armor-demo"
 
 echo "🚀 Starting deployment with gcloud run..."
