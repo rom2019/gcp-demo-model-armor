@@ -12,10 +12,14 @@ import json
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- GCP 설정 ---
-GCP_PROJECT_ID = "releng-project"
-GCP_LOCATION = "us-central1"
-MODEL_ARMOR_TEMPLATE_ID = "test"
+# --- GCP 설정 (환경변수에서 가져오기) ---
+GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID")
+GCP_LOCATION = os.getenv("GCP_LOCATION")
+MODEL_ARMOR_TEMPLATE_ID = os.getenv("MODEL_ARMOR_TEMPLATE_ID")
+
+# Streamlit 설정
+STREAMLIT_SERVER_PORT = int(os.getenv("STREAMLIT_SERVER_PORT")) if os.getenv("STREAMLIT_SERVER_PORT") else None
+STREAMLIT_SERVER_ADDRESS = os.getenv("STREAMLIT_SERVER_ADDRESS")
 
 # --- Model Armor REST API 호출 함수 ---
 def check_model_armor_rules(project_id: str, location: str, template_id: str, prompt_text: str):
